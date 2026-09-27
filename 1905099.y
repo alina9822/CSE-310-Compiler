@@ -77,6 +77,47 @@ char* myToLower(char* token){
 	return token;
 }
 
+ofstream asmFile;
+int tempCount = 0;
+int labelCount = 0;
+string currentIfFalseLabel = "";
+string currentIfEndLabel = "";
+string currentWhileStartLabel = "";
+string currentWhileEndLabel = "";
+
+string newTemp()
+{
+    return "t" + to_string(tempCount++);
+}
+
+string newLabel()
+{
+    return "L" + to_string(labelCount++);
+}
+
+string asmRelop(const string &op)
+{
+    if (op == ">") return "JG";
+    if (op == ">=") return "JGE";
+    if (op == "<") return "JL";
+    if (op == "<=") return "JLE";
+    if (op == "==") return "JE";
+    if (op == "!=") return "JNE";
+    return "CMP";
+}
+
+void emitCode(const string &line)
+{
+    if (asmFile.is_open())
+        asmFile << line << endl;
+}
+
+string getOperandName(SymbolInfo *sym)
+{
+    if (sym == NULL)
+        return "";
+    return sym->getName();
+}
 
 void yyerror(char *s)
 {
@@ -1002,8 +1043,13 @@ statement : var_declaration
       }
 	  | IF LPAREN expression RPAREN statement %prec LOWER_THAN_ELSE
       {
+        string cond = getOperandName($3);
+        string falseLabel = newLabel();
+        emitCode("CMP " + cond + ", 0");
+        emitCode("JE " + falseLabel);
+        emitCode(falseLabel + ":");
+
         $$=new SymbolInfo("statement","IF LPAREN expression RPAREN statement");
-            // tempChildList= new vector<SymbolInfo*>();
             tempChildList.push_back($1);
             tempChildList.push_back($2);
             tempChildList.push_back($3);
@@ -1022,8 +1068,16 @@ statement : var_declaration
       }
 	  | IF LPAREN expression RPAREN statement ELSE statement
       {
+        string cond = getOperandName($3);
+        string elseLabel = newLabel();
+        string endLabel = newLabel();
+        emitCode("CMP " + cond + ", 0");
+        emitCode("JE " + elseLabel);
+        emitCode("JMP " + endLabel);
+        emitCode(elseLabel + ":");
+        emitCode(endLabel + ":");
+
         $$=new SymbolInfo("statement","IF LPAREN expression RPAREN statement ELSE statement");
-            // tempChildList= new vector<SymbolInfo*>();
             tempChildList.push_back($1);
             tempChildList.push_back($2);
             tempChildList.push_back($3);
@@ -1044,8 +1098,15 @@ statement : var_declaration
       }
 	  | WHILE LPAREN expression RPAREN statement
       {
+        string cond = getOperandName($3);
+        string startLabel = newLabel();
+        string endLabel = newLabel();
+        emitCode(startLabel + ":");
+        emitCode("CMP " + cond + ", 0");
+        emitCode("JE " + endLabel);
+        emitCode(endLabel + ":");
+
         $$=new SymbolInfo("statement","WHILE LPAREN expression RPAREN statement");
-            // tempChildList= new vector<SymbolInfo*>();
             tempChildList.push_back($1);
             tempChildList.push_back($2);
             tempChildList.push_back($3);
@@ -1088,6 +1149,8 @@ statement : var_declaration
             }
 
             fprintf(logout,"statement : PRINTLN LPAREN ID RPAREN SEMICOLON\n");
+
+            emitCode("PRINT " + $3->getName());
            
       }
 	  | RETURN expression SEMICOLON
@@ -1106,6 +1169,9 @@ statement : var_declaration
             $$->setEndLine($3->getEndLine());
 
             fprintf(logout,"statement : RETURN expression SEMICOLON\n");
+
+            emitCode("MOV AX, " + getOperandName($2));
+            emitCode("RET");
            
       }
 	  ;
@@ -1257,7 +1323,13 @@ variable : ID
             $$->setStartLine($1->getStartLine());
             $$->setEndLine($3->getEndLine());
 
+            $$->setName($1->getName());
+
             fprintf(logout,"expression : variable ASSIGNOP logic_expression\n");
+
+            string destination = getOperandName($1);
+            string source = getOperandName($3);
+            emitCode("MOV " + destination + ", " + source);
            
        } 	
 	   ;
@@ -1276,6 +1348,7 @@ logic_expression : rel_expression
             $$->setStartLine($1->getStartLine());
             $$->setEndLine($1->getEndLine());
 
+            $$->setName($1->getName());
             fprintf(logout,"logic_expression : rel_expression\n");
            
        } 	
@@ -1294,6 +1367,20 @@ logic_expression : rel_expression
 
             $$->setStartLine($1->getStartLine());
             $$->setEndLine($3->getEndLine());
+
+            string left = getOperandName($1);
+            string right = getOperandName($3);
+            string label1 = newLabel();
+            string label2 = newLabel();
+            string temp = newTemp();
+            emitCode("CMP " + left + ", " + right);
+            emitCode("JE " + label1);
+            emitCode("MOV " + temp + ", 0");
+            emitCode("JMP " + label2);
+            emitCode(label1 + ":");
+            emitCode("MOV " + temp + ", 1");
+            emitCode(label2 + ":");
+            $$->setName(temp);
 
             fprintf(logout,"logic_expression : rel_expression LOGICOP rel_expression\n");
            
@@ -1314,6 +1401,7 @@ rel_expression	: simple_expression
             $$->setStartLine($1->getStartLine());
             $$->setEndLine($1->getEndLine());
 
+            $$->setName($1->getName());
             fprintf(logout,"rel_expression	: simple_expression\n");
            
 }
@@ -1334,6 +1422,21 @@ rel_expression	: simple_expression
             $$->setEndLine($3->getEndLine());
 
             fprintf(logout,"rel_expression : simple_expression RELOP simple_expression\n");
+
+            string left = getOperandName($1);
+            string rel = asmRelop($2->getName());
+            string right = getOperandName($3);
+            string label1 = newLabel();
+            string label2 = newLabel();
+            string temp = newTemp();
+            emitCode("CMP " + left + ", " + right);
+            emitCode(rel + " " + label1);
+            emitCode("MOV " + temp + ", 0");
+            emitCode("JMP " + label2);
+            emitCode(label1 + ":");
+            emitCode("MOV " + temp + ", 1");
+            emitCode(label2 + ":");
+            $$->setName(temp);
            
         }
 		;
@@ -1352,6 +1455,7 @@ simple_expression : term
             $$->setStartLine($1->getStartLine());
             $$->setEndLine($1->getEndLine());
 
+            $$->setName($1->getName());
             fprintf(logout,"simple_expression : term\n");
            
 }
@@ -1372,6 +1476,15 @@ simple_expression : term
             $$->setEndLine($3->getEndLine());
 
             fprintf(logout,"simple_expression : simple_expression ADDOP term\n");
+
+            string left = getOperandName($1);
+            string op = $2->getName();
+            string right = getOperandName($3);
+            string temp = newTemp();
+            emitCode("MOV " + temp + ", " + left);
+            if (op == "+") emitCode("ADD " + temp + ", " + right);
+            else emitCode("SUB " + temp + ", " + right);
+            $$->setName(temp);
            
           }
 		  ;
@@ -1392,6 +1505,7 @@ term :	unary_expression
             $$->setStartLine($1->getStartLine());
             $$->setEndLine($1->getEndLine());
 
+            $$->setName($1->getName());
             fprintf(logout,"term :	unary_expression\n");
            
           
@@ -1415,6 +1529,16 @@ term :	unary_expression
             $$->setEndLine($3->getEndLine());
 
             fprintf(logout,"term :	term MULOP unary_expression\n");
+
+            string left = getOperandName($1);
+            string op = $2->getName();
+            string right = getOperandName($3);
+            string temp = newTemp();
+            emitCode("MOV " + temp + ", " + left);
+            if (op == "*") emitCode("MUL " + temp + ", " + right);
+            else if (op == "/") emitCode("DIV " + temp + ", " + right);
+            else emitCode("MOD " + temp + ", " + right);
+            $$->setName(temp);
            
           
      }
@@ -1471,6 +1595,7 @@ unary_expression : ADDOP unary_expression
             $$->setStartLine($1->getStartLine());
             $$->setEndLine($1->getEndLine());
 
+            $$->setName($1->getName());
             fprintf(logout,"unary_expression : factor\n");
           
 } 
@@ -1489,6 +1614,7 @@ factor	: variable{
             $$->setStartLine($1->getStartLine());
             $$->setEndLine($1->getEndLine());
 
+            $$->setName($1->getName());
             fprintf(logout,"factor : variable\n");
 }
 
@@ -1560,6 +1686,7 @@ factor	: variable{
             $$->setEndLine($1->getEndLine());
 
             fprintf(logout,"factor : CONST_INT\n");
+            $$->setName($1->getName());
       
     }
 	| CONST_FLOAT
@@ -1577,6 +1704,7 @@ factor	: variable{
             $$->setEndLine($1->getEndLine());
 
             fprintf(logout,"factor : CONST_FLOAT\n");
+            $$->setName($1->getName());
       
     }
 	| variable INCOP 
@@ -1680,8 +1808,8 @@ arguments : arguments COMMA logic_expression
 
 int main(int argc,char *argv[])
 {
-    if(argc!=2){
-		printf("Please provide input file name and try again\n");
+    if(argc < 2 || argc > 3){
+		printf("Usage: %s <input_file> [output_file]\n", argv[0]);
 		return 0;
 	}
 	
@@ -1691,13 +1819,34 @@ int main(int argc,char *argv[])
 		return 0;
 	}
 	
+    string asmOutput = (argc == 3) ? argv[2] : "assembly.asm";
+    if (argc == 2)
+    {
+        string inputPath = argv[1];
+        size_t pos = inputPath.find("examples/inputs/");
+        if (pos != string::npos)
+        {
+            string fileName = inputPath.substr(inputPath.find_last_of("/") + 1);
+            size_t dot = fileName.find_last_of(".");
+            if (dot != string::npos)
+                fileName = fileName.substr(0, dot);
+            asmOutput = "examples/outputs/" + fileName + ".asm";
+            system("mkdir -p examples/outputs");
+        }
+    }
+
     //tempChildList= new vector<SymbolInfo*>();
 
 	logout= fopen("log.txt","w");
 	tokenout= fopen("token.txt","w");
     errorout= fopen("error.txt","w");
     parseout= fopen("parsetree.txt","w");
-
+    asmFile.open(asmOutput.c_str());
+    if (!asmFile.is_open())
+    {
+        printf("Failed to open assembly output file\n");
+        return 0;
+    }
 	//symbol_table.fileWork(logout);
 
 	yyin= fin;

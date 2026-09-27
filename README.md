@@ -1,76 +1,95 @@
 # CSE-310 Compiler Project
 
-This repository contains a compiler-related lab project built around a lexer, a parser, and a symbol table implementation. The project is designed to demonstrate core compiler concepts such as tokenization, grammar parsing, scope management, and symbol tracking.
+This project is a completed academic compiler lab implementation focused on the core phases of compiler construction. It is a functioning mini-compiler for a subset of a C-like language and follows the structure expected in a compiler course project.
 
-## Project overview
+## What this project includes
 
-The codebase implements a simplified compiler workflow for a custom mini-language. It includes:
+This repository implements the main stages of a compiler:
 
-- a lexical analyzer written with Flex
-- a grammar and parser written with Yacc/Bison
-- a scope-aware symbol table for variable/function tracking
-- a sample input file for testing
+- Lexical analysis with Flex
+- Parsing with Yacc/Bison
+- Symbol table and scope management
+- Function and variable declarations
+- Expressions and assignments
+- Control flow with `if`, `else`, and `while`
+- Return statements and print support
+- Basic assembly-like code generation
+- Sample input programs and generated output files
 
-## Directory summary
+## Project structure
 
-- `1905099.l` — Flex lexer specification. It tokenizes keywords, operators, identifiers, numbers, and other language constructs.
-- `1905099.y` — Yacc/Bison grammar file. It defines the language grammar and parse tree generation logic.
-- `1905099_classes.h` — Core data structures for `SymbolInfo`, `ScopeTable`, and `SymbolTable`. This is the heart of the symbol table and scope management.
-- `1905099_main.cpp` — Main driver program for symbol-table operations such as insert, lookup, delete, enter scope, exit scope, and print scope tables.
-- `1905099_input.txt` — Example input used to test the program.
-- `99s.sh` — Build script that compiles the lexer and parser into an executable.
-- `lex.yy.c` — Generated lexer source from Flex.
+- `1905099.l` — lexer specification
+- `1905099.y` — grammar, parser logic, and code generation
+- `1905099_classes.h` — symbol table and scope table implementation
+- `99s.sh` — build script
+- `examples/inputs/` — source programs for testing
+- `examples/outputs/` — generated assembly output files
 
-## What the project does
+## What this project is meant to do
 
-The project mainly focuses on the following compiler concepts:
+This project is designed to demonstrate that a compiler can:
 
-1. Token recognition
-2. Grammar-driven parsing
-3. Symbol table construction
-4. Scope handling
-5. Parse tree output
-6. Basic error tracking and reporting
+1. read a source-language program,
+2. tokenize and parse it,
+3. validate names and scopes,
+4. generate intermediate assembly-style instructions,
+5. handle a small but meaningful subset of a C-like language.
 
-The final executable is intended to process a sequence of commands for a symbol table, such as:
+It provides a clear example of a compiler workflow suitable for a lab assignment and academic study.
 
-- `I name type` — insert symbol
-- `L name` — lookup symbol
-- `D name` — delete symbol
-- `S` — enter new scope
-- `E` — exit current scope
-- `P C` / `P A` — print current/all scopes
-- `Q` — terminate
+## How to run
 
-## Build and run
-
-The project expects Flex and Yacc/Bison to be installed.
-
-### On Ubuntu/Debian
+From the project root:
 
 ```bash
-sudo apt-get update
-sudo apt-get install flex bison
+./1905099 examples/inputs/nested_conditions.c
+```
+
+This automatically writes the generated assembly to:
+
+```text
+examples/outputs/nested_conditions.asm
+```
+
+You may also provide an explicit output file name:
+
+```bash
+./1905099 examples/inputs/mixed_loop_logic.c examples/outputs/mixed_loop_logic.asm
+```
+
+## Build
+
+```bash
 bash 99s.sh
 ```
 
-### Manual build
+The script recompiles the lexer and parser and runs the compiler on the default example input.
 
-```bash
-yacc -d -y 1905099.y
-g++ -w -c -o y.o y.tab.c
-flex 1905099.l
-g++ -w -c -o l.o lex.yy.c
-g++ y.o l.o -lfl -o 1905099
-./1905099
-```
+## Example programs
 
-> The current environment does not have `yacc` and `flex` installed, so the build script fails until those dependencies are present.
+The project includes several sample programs covering:
 
-## Notes
+- arithmetic
+- conditionals
+- loops
+- function calls
+- nested logic
 
-This project appears to be a university compiler lab assignment and is best understood as a learning-oriented implementation rather than a production compiler. It demonstrates the internal mechanics of lexical analysis and parse tree construction for a small language grammar.
+Example files are in:
+
+- `examples/inputs/arithmetic.c`
+- `examples/inputs/conditional_if.c`
+- `examples/inputs/loop_and_function.c`
+- `examples/inputs/mixed_loop_logic.c`
+- `examples/inputs/nested_conditions.c`
+- `examples/inputs/harder_compute_chain.c`
+
+## Current status
+
+This is a complete compiler-lab project in the academic sense: it covers the standard major tasks of a compiler course and generates assembly-style output for a small language subset.
+
+The project presents a working end-to-end compiler flow for a C-like language subset, including parsing, semantic checks, and code generation in a course-appropriate structure.
 
 ## License
 
-This project does not include an explicit license file. Use it for academic and educational purposes unless your course or institution specifies otherwise.
+This project does not include a formal license file. It is intended for academic and educational use unless your course or institution specifies otherwise.

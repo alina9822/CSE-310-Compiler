@@ -1,0 +1,22 @@
+# compiler binary
+1905099
+
+# object files
+*.o
+
+# yacc/flex generated files
+lex.yy.c
+y.tab.c
+y.tab.h
+
+# temp logs and diagnostics
+error.txt
+log.txt
+token.txt
+parsetree.txt
+
+# default generated assembly output
+assembly.asm
+
+# editor/system noise
+.DS_Store
